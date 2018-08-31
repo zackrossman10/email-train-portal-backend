@@ -11,6 +11,9 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.apache.commons.lang.StringEscapeUtils;
+
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -22,52 +25,17 @@ import edu.stanford.nlp.process.DocumentPreprocessor;
 public class Parser {
 	public final String s3InputBucket = "emailtraininginput";
 	public final String s3OutputBucket = "emailtrainingoutput";
-	
+
 	public static void main(String[] args) {
 		Wrapper wrapper = new Wrapper();
 		Parser parser = new Parser();
-		File tempTxtFile = parser.getS3Data("testInput8.29.txt");
-		String text = parser.readTxt(tempTxtFile);
+		File tempTxtFile = parser.getS3Data("testInput8.30.txt");
+		ArrayList<String> text = parser.readTxt(tempTxtFile);
 		List<String> sentences = parser.stanfordParse(text);
 		File outputCsv = parser.sentencesToCsv(sentences);
 		Wrapper.s3Client.putObject(wrapper.s3OutputBucket, "sentences.csv", outputCsv);
 	}
 
-	/**
-	 * Read data from a .txt file, acculumulate into a string
-	 * 
-	 * @param tempTxtFile
-	 *            input text
-	 * @return the string accumulator
-	 */
-	public String readTxt(File tempTxtFile) {
-		BufferedReader br = null;
-		String accumulator = "";
-		try {
-			br = new BufferedReader(new FileReader(tempTxtFile));
-			String line;
-			try {
-				while ((line = br.readLine()) != null) {
-					accumulator += line;
-				}
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} finally {
-			if (br != null) {
-				try {
-					br.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		System.out.println("** .txt data transferred to string **");
-		return accumulator;
-	}
-	
 	/**
 	 * Read data from an S3 .txt file into a local, temporary .txt file
 	 * 
@@ -109,18 +77,53 @@ public class Parser {
 		return tempTxtFile;
 	}
 
-	public List<String> stanfordParse(String input) {
-		Reader reader = new StringReader(input);
-		DocumentPreprocessor dp = new DocumentPreprocessor(reader);
-		List<String> sentenceList = new ArrayList<String>();
-		for (List<HasWord> sentence : dp) {
-			// SentenceUtils not Sentence
-			String sentenceString = SentenceUtils.listToString(sentence);
-			sentenceList.add(sentenceString);
+	/**
+	 * Read data from a .txt file, acculumulate into a string
+	 * 
+	 * @param tempTxtFile
+	 *            input text
+	 * @return the string accumulator
+	 */
+	public ArrayList<String> readTxt(File tempTxtFile) {
+		BufferedReader br = null;
+		// group strings into chunks ('/n') to help the sentence parser
+		// ASSUMPTION: TEXT ON DIFFERENT LINES WILL NEVER BELONG TO SAME SENTENCE
+		ArrayList<String> lineAcc = new ArrayList<String>();
+		try {
+			br = new BufferedReader(new FileReader(tempTxtFile));
+			try {
+				String line;
+				while ((line = br.readLine()) != null) {
+					lineAcc.add(line);
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} finally {
+			if (br != null) {
+				try {
+					br.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 		}
+		System.out.println("** .txt data transferred to string **");
+		return lineAcc;
+	}
 
-		for (String sentence : sentenceList) {
-			System.out.println(sentence);
+	public List<String> stanfordParse(ArrayList<String> input) {
+		List<String> sentenceList = new ArrayList<String>();
+		for (String line : input) {
+			Reader reader = new StringReader(line);
+			DocumentPreprocessor dp = new DocumentPreprocessor(reader);
+			for (List<HasWord> sentence : dp) {
+				// SentenceUtils not Sentence
+				String sentenceString = SentenceUtils.listToString(sentence);
+				sentenceList.add(sentenceString);
+			}
 		}
 		System.out.println("** Email body parsed by Stanford NLP **");
 		return sentenceList;
@@ -136,7 +139,7 @@ public class Parser {
 			pw = new FileWriter(tempCsv, true);
 			for (String sentence : sentences) {
 				// only fill second column with the email sentence
-				sb.append(", " + sentence + ", , ,\n");
+				sb.append(','+"\""+sentence+"\"\n");
 			}
 			pw.write(sb.toString());
 		} catch (IOException e) {
@@ -151,7 +154,7 @@ public class Parser {
 		System.out.println("** Sentences written to .csv **");
 		return tempCsv;
 	}
-	
+
 	/**
 	 * Create a temporary file
 	 * 

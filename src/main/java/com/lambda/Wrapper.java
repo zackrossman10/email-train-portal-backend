@@ -1,7 +1,7 @@
 package com.lambda;
 
 import java.io.File;
-
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -16,9 +16,10 @@ import com.amazonaws.services.s3.AmazonS3Client;
 public class Wrapper {
 	public final String s3InputBucket = "emailtraininginput";
 	public final String s3OutputBucket = "emailtrainingoutput";
-    public static AmazonS3 s3Client = new AmazonS3Client(DefaultAWSCredentialsProviderChain.getInstance());
+	@SuppressWarnings("deprecation")
+	public static AmazonS3 s3Client = new AmazonS3Client(DefaultAWSCredentialsProviderChain.getInstance());
 	public Parser parser;
-	
+
 	/**
 	 * Main function called by Lambda after SQS trigger
 	 * 
@@ -38,7 +39,7 @@ public class Wrapper {
 		if (fileExtension.equals(".txt")) {
 			if (s3Client.doesObjectExist(s3InputBucket, s3InputKey)) {
 				File tempTxtFile = parser.getS3Data(s3InputKey);
-				String text = parser.readTxt(tempTxtFile);
+				ArrayList<String> text = parser.readTxt(tempTxtFile);
 				List<String> sentences = parser.stanfordParse(text);
 				File outputCsv = parser.sentencesToCsv(sentences);
 				s3Client.putObject(s3OutputBucket, "sentences.csv", outputCsv);
