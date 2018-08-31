@@ -12,8 +12,6 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang.StringEscapeUtils;
-
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
@@ -29,52 +27,11 @@ public class Parser {
 	public static void main(String[] args) {
 		Wrapper wrapper = new Wrapper();
 		Parser parser = new Parser();
-		File tempTxtFile = parser.getS3Data("testInput8.30.txt");
+		File tempTxtFile = wrapper.getS3Data("testInput8.30.txt");
 		ArrayList<String> text = parser.readTxt(tempTxtFile);
 		List<String> sentences = parser.stanfordParse(text);
 		File outputCsv = parser.sentencesToCsv(sentences);
-		Wrapper.s3Client.putObject(wrapper.s3OutputBucket, "sentences.csv", outputCsv);
-	}
-
-	/**
-	 * Read data from an S3 .txt file into a local, temporary .txt file
-	 * 
-	 * @return the local temporary file
-	 */
-	public File getS3Data(String s3InputKey) {
-		S3Object o = Wrapper.s3Client.getObject(s3InputBucket, s3InputKey);
-		S3ObjectInputStream s3is = o.getObjectContent();
-		FileOutputStream fos = null;
-		File tempTxtFile = createTempFile("input", ".txt");
-		try {
-			fos = new FileOutputStream(tempTxtFile);
-			byte[] readBuf = new byte[1024];
-			int readLen = 0;
-			while ((readLen = s3is.read(readBuf)) > 0) {
-				fos.write(readBuf, 0, readLen);
-			}
-		} catch (AmazonServiceException e) {
-			System.err.println(e.getErrorMessage());
-		} catch (FileNotFoundException e) {
-			System.err.println(e.getMessage());
-		} catch (IOException e) {
-			System.err.println(e.getMessage());
-		} finally {
-			if (fos != null) {
-				try {
-					fos.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-			try {
-				s3is.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-		System.out.println("** S3 Data transferred to .txt **");
-		return tempTxtFile;
+//		Wrapper.s3Client.putObject(wrapper.s3OutputBucket, "sentences.csv", outputCsv);
 	}
 
 	/**
