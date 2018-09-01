@@ -22,14 +22,28 @@ public class Normalizer {
 				"Hello Robert, my name's Zack. My 20th birthday is on May 18th, 1998. I'm going to be 20. you're you'll you've won't ");
 		System.out.println("Coprehend normalized: " + normalizedText);
 		normalizedText = normalizer.searchReplaceNormalize(normalizedText);
-		System.out.println("Fully normalized: " + normalizedText);
+		System.out.println("** Fully normalized: " + normalizedText + " **");
+	}
+
+	/**
+	 * Wrapper method for normalization
+	 * 
+	 * @param originalText
+	 *            the text to be normalized
+	 * @return the normalized string
+	 */
+	public String normalize(String originalText) {
+		String normalizedText = comprehendNormalize(originalText);
+		normalizedText = searchReplaceNormalize(normalizedText);
+		System.out.println("** Sentences fully normalized **");
+		return normalizedText;
 	}
 
 	/**
 	 * Replace names and dates with normalized terms as identified by AWS Comprehend
 	 * 
 	 * @param originalText
-	 *            the text to normalize
+	 *            the text to normalize with AWS Comprehend
 	 * @return the normalized string
 	 */
 	public String comprehendNormalize(String originalText) {
@@ -46,6 +60,7 @@ public class Normalizer {
 				normalizedText = normalizedText.replaceAll(text, "[" + type.toLowerCase() + "]");
 			}
 		}
+		System.out.println("** Sentences normalized by AWS Comprehend **");
 		return normalizedText;
 	}
 
@@ -54,7 +69,7 @@ public class Normalizer {
 	 * regexes, search/replace
 	 * 
 	 * @param originalText
-	 *            the text to normalize
+	 *            the text to normalize with regexes
 	 * @return the normalized string
 	 */
 	public String searchReplaceNormalize(String originalText) {
@@ -75,7 +90,7 @@ public class Normalizer {
 		originalText = originalText.replaceAll("(?i)( we | you[ *]| he | she | they )", " [pronoun-subject] ");
 		originalText = originalText.replaceAll("(I |We |You |He |She |They )", "[pronoun-subject] ");
 		originalText = originalText.replaceAll("( me | us | them )", " [pronoun-object] ");
-		// delete EOL characters
-		return originalText.replaceAll("[*]", "");
+		System.out.println("** Sentences normalized by regexes **");
+		return originalText;
 	}
 }

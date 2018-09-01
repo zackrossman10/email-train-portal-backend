@@ -18,10 +18,6 @@ import org.json.JSONObject;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.services.comprehend.AmazonComprehend;
-import com.amazonaws.services.comprehend.AmazonComprehendClientBuilder;
-import com.amazonaws.services.comprehend.model.DetectEntitiesRequest;
-import com.amazonaws.services.comprehend.model.DetectEntitiesResult;
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
@@ -34,9 +30,6 @@ public class Wrapper {
 	public AWSCredentialsProvider awsCreds = DefaultAWSCredentialsProviderChain.getInstance();
 	public AmazonS3 s3Client = AmazonS3ClientBuilder.standard().withCredentials(awsCreds).withRegion("us-east-1")
 			.build();
-	public AmazonComprehend comprehendClient = AmazonComprehendClientBuilder.standard().withCredentials(awsCreds)
-			.withRegion("us-east-1").build();
-	public Normalizer normalizer = new Normalizer();
 	public Parser parser = new Parser();
 
 	/**
@@ -51,6 +44,7 @@ public class Wrapper {
 	public String handleRequest(Map<String, Map<String, Object>[]> arg0, Context arg1) {
 		String body = (String) arg0.get("Records")[0].get("body");
 		JSONArray records = new JSONObject(body).getJSONArray("Records");
+		// parse the new .txt filename out of the SQS message
 		String s3InputKey = records.getJSONObject(0).getJSONObject("s3").getJSONObject("object").getString("key")
 				.replace("+", " ").replace("%2C", ",");
 		String fileExtension = s3InputKey.substring(s3InputKey.length() - 4, s3InputKey.length()).toLowerCase();
@@ -66,8 +60,10 @@ public class Wrapper {
 				File errorFile = parser.createTempFile("error", ".txt");
 				s3Client.putObject(s3OutputBucket, s3InputKey + "_NOT_FOUND", errorFile);
 			}
+		} else {
+			System.out.println("!! Wrong file extension, must be a .txt file !!");
 		}
-		return "Finished .csv creation";
+		return "** Finished .csv creation **";
 	}
 
 	/**
@@ -110,6 +106,4 @@ public class Wrapper {
 		System.out.println("** S3 Data transferred to .txt **");
 		return tempTxtFile;
 	}
-	
-	
 }

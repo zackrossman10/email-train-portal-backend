@@ -3,7 +3,6 @@ package com.lambda;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -12,10 +11,6 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
-
 import edu.stanford.nlp.ling.HasWord;
 import edu.stanford.nlp.ling.SentenceUtils;
 import edu.stanford.nlp.process.DocumentPreprocessor;
@@ -23,6 +18,7 @@ import edu.stanford.nlp.process.DocumentPreprocessor;
 public class Parser {
 	public final String s3InputBucket = "emailtraininginput";
 	public final String s3OutputBucket = "emailtrainingoutput";
+	public Normalizer normalizer = new Normalizer();
 
 	public static void main(String[] args) {
 		Wrapper wrapper = new Wrapper();
@@ -31,7 +27,7 @@ public class Parser {
 		ArrayList<String> text = parser.readTxt(tempTxtFile);
 		List<String> sentences = parser.stanfordParse(text);
 		File outputCsv = parser.sentencesToCsv(sentences);
-//		Wrapper.s3Client.putObject(wrapper.s3OutputBucket, "sentences.csv", outputCsv);
+		wrapper.s3Client.putObject(wrapper.s3OutputBucket, "sentences.csv", outputCsv);
 	}
 
 	/**
@@ -90,13 +86,21 @@ public class Parser {
 		File tempCsv = createTempFile("sentences", ".csv");
 		StringBuilder sb = new StringBuilder();
 		// headers for .csv file
-		sb.append("classification, email_body, date_binary, question_mark_binary, \n");
+		sb.append("classification, original_email_body, normalized_email_body, date_binary, question_binary\n");
 		FileWriter pw = null;
 		try {
 			pw = new FileWriter(tempCsv, true);
 			for (String sentence : sentences) {
-				// only fill second column with the email sentence
-				sb.append(','+"\""+sentence+"\"\n");
+				// local vars for fields of training data
+				String normalizedSentence = normalizer.normalize(sentence);
+				String dateBinary = normalizedSentence.contains("[date]") ? "1" : "0";
+				String questionBinary = normalizedSentence.contains("?") ? "1" : "0";
+				// leave the first column blank for manual classification
+				sb.append(',');
+				sb.append("\"" + sentence + "\",");
+				sb.append("\"" + normalizedSentence + "\",");
+				sb.append("\"" + dateBinary + "\",");
+				sb.append("\"" + questionBinary + "\"\n");
 			}
 			pw.write(sb.toString());
 		} catch (IOException e) {
